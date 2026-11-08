@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Спорим, я сильнее</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* one visual world: night, hot red glow, huge tight type, everything happens under the thumb */
+  --bg: #0a0608;
+  --ink: #fff4f6;
+  --mute: #b98a95;
+  --hot: #ff2d55;
+  --glow: #ff7a59;
+  --line: rgba(255, 244, 246, .14);
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Manrope", system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: var(--body); overflow: hidden;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.glow { position: fixed; inset: -20%; pointer-events: none;
+  background: radial-gradient(40% 35% at 50% 62%, rgba(255,45,85,.35), transparent 70%),
+              radial-gradient(30% 25% at 70% 20%, rgba(255,122,89,.18), transparent 70%);
+  transition: opacity .8s; }
+.scr { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: space-between;
+  padding: max(28px, env(safe-area-inset-top)) 22px max(28px, env(safe-area-inset-bottom));
+  opacity: 0; pointer-events: none; transform: translateY(18px); transition: opacity .5s, transform .5s; }
+.scr.on { opacity: 1; pointer-events: auto; transform: none; }
+.tag { font: 600 12px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--mute);
+  display: flex; justify-content: space-between; }
+h1, h2 { font-family: var(--display); font-weight: 900; line-height: .92; letter-spacing: -.03em; text-wrap: balance; }
+h1 { font-size: clamp(34px, 10.5vw, 84px); }
+h2 { font-size: clamp(32px, 10vw, 60px); }
+.hot { color: var(--hot); text-shadow: 0 0 30px rgba(255,45,85,.6); }
+p.lead { font: 600 18px/1.4 var(--body); color: var(--mute); max-width: 32ch; margin-top: 18px; }
+.btn { font: 700 17px/1 var(--display); letter-spacing: -.01em; color: var(--bg); background: var(--ink);
+  border: 0; border-radius: 999px; padding: 22px 28px; width: 100%; cursor: pointer;
+  transition: transform .15s, background .2s, font-size .3s, padding .3s; }
+.btn:active { transform: scale(.97); }
+.btn:focus-visible { outline: 3px solid var(--hot); outline-offset: 4px; }
+.btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+.btn.red { background: var(--hot); color: var(--ink); box-shadow: 0 10px 40px rgba(255,45,85,.5); }
+
+/* hold screen */
+.holdwrap { display: grid; place-items: center; flex: 1; }
+.hold { position: relative; width: min(66vw, 260px); aspect-ratio: 1; border-radius: 50%; border: 0;
+  background: radial-gradient(circle at 50% 40%, #ff5a78, var(--hot) 55%, #b5002a);
+  box-shadow: 0 0 0 10px rgba(255,45,85,.12), 0 20px 80px rgba(255,45,85,.55);
+  color: var(--ink); font: 900 22px/1.1 var(--display); cursor: pointer; touch-action: none;
+  transition: transform .2s; }
+.hold.down { transform: scale(.93); animation: thump .45s infinite; }
+@keyframes thump { 0%,100% { box-shadow: 0 0 0 10px rgba(255,45,85,.12), 0 20px 80px rgba(255,45,85,.55);} 50% { box-shadow: 0 0 0 28px rgba(255,45,85,.08), 0 20px 120px rgba(255,45,85,.9);} }
+.hold svg { position: absolute; inset: -18px; width: calc(100% + 36px); height: calc(100% + 36px); transform: rotate(-90deg); pointer-events: none; }
+.hold circle { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+.big { font: 900 clamp(40px, 13vw, 76px)/1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+.unit { font: 600 14px/1.3 var(--body); color: var(--mute); }
+
+/* duel */
+.row { display: grid; gap: 10px; }
+.row + .row { margin-top: 26px; }
+.row .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.row .who { font: 800 13px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.row .num { font: 900 26px/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bar { height: 14px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: visible; position: relative; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: var(--ink); width: 0; }
+.bar.me i { background: linear-gradient(90deg, var(--hot), var(--glow)); box-shadow: 0 0 24px var(--hot); }
+.err { font: 800 13px/1.5 ui-monospace, Menlo, monospace; color: var(--hot); margin-top: 28px; min-height: 5em; white-space: pre-wrap; }
+.shake { animation: shake .12s infinite; }
+@keyframes shake { 25% { transform: translate(3px,-2px);} 50% { transform: translate(-3px,2px);} 75% { transform: translate(2px,3px);} }
+
+/* verdict */
+.choices { display: grid; gap: 12px; }
+#no { transition: transform .35s, opacity .35s; }
+
+/* final */
+#s5 { justify-content: space-between; }
+.score { display: flex; align-items: baseline; gap: 12px; font-family: var(--display); font-weight: 900; }
+.score b { font-size: clamp(56px, 18vw, 110px); letter-spacing: -.05em; line-height: .9; }
+.score span { font-size: 28px; color: var(--mute); }
+.hint { font: 600 14px/1.4 var(--body); color: var(--mute); text-align: center; }
+#taps { font: 800 15px/1.4 var(--body); color: var(--ink); text-align: center; min-height: 1.4em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scr { transition: opacity .2s; transform: none; }
+  .shake, .hold.down { animation: none; }
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="glow" id="glow"></div>
+
+<!-- 1 -->
+<section class="scr on" id="s1">
+  <div class="tag"><span>Спор №1</span><span>09.11.2026</span></div>
+  <div>
+    <h1>Ты правда думаешь, что любишь <span class="hot">сильнее</span>?</h1>
+    <p class="lead">Давай проверим. По-честному, с приборами.</p>
+  </div>
+  <button class="btn" id="go1">Проверяй</button>
+</section>
+
+<!-- 2 -->
+<section class="scr" id="s2">
+  <div class="tag"><span>Шаг 1 из 2</span><span>Твоя любовь</span></div>
+  <div>
+    <h2>Зажми сердце и держи, пока любишь</h2>
+    <p class="lead" id="holdhint">Чем дольше держишь, тем больше любви.</p>
+  </div>
+  <div class="holdwrap">
+    <button class="hold" id="hold" aria-label="Зажми и держи">
+      <svg viewBox="0 0 100 100"><circle id="ring" cx="50" cy="50" r="48" pathLength="100" stroke-dasharray="0 100"/></svg>
+      <span id="holdtxt">ДЕРЖИ</span>
+    </button>
+  </div>
+  <div>
+    <div class="big" id="herval">0</div>
+    <div class="unit">единиц любви</div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="scr" id="s3">
+  <div class="tag"><span>Шаг 2 из 2</span><span>Теперь моя</span></div>
+  <div id="duel">
+    <div class="row">
+      <div class="top"><span class="who">Ты</span><span class="num" id="n1">0</span></div>
+      <div class="bar"><i id="b1"></i></div>
+    </div>
+    <div class="row">
+      <div class="top"><span class="who">Я</span><span class="num hot" id="n2">0</span></div>
+      <div class="bar me"><i id="b2"></i></div>
+    </div>
+    <div class="err" id="err"></div>
+  </div>
+  <button class="btn red" id="go3" style="visibility:hidden">И что теперь?</button>
+</section>
+
+<!-- 4 -->
+<section class="scr" id="s4">
+  <div class="tag"><span>Вердикт</span><span>Без апелляций</span></div>
+  <div>
+    <h1>Признаёшь, что я люблю <span class="hot">сильнее</span>?</h1>
+  </div>
+  <div class="choices">
+    <button class="btn red" id="yes">Да, ты сильнее</button>
+    <button class="btn ghost" id="no">Нет, я сильнее</button>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="scr" id="s5">
+  <div style="display:grid;gap:28px">
+  <div class="tag"><span>Итог</span><span>Официально</span></div>
+  <div>
+    <div class="score"><b class="hot" id="mine">1000</b><span>:</span><b>1</b></div>
+    <p class="lead">Я тебя сильнее люблю. Теперь это научный факт.</p>
+  </div>
+  </div>
+  <div>
+    <div id="taps"></div>
+    <p class="hint">Тапни по сердцу</p>
+  </div>
+</section>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+  const fmt = n => Math.floor(n).toLocaleString('ru-RU');
+  const show = id => { document.querySelectorAll('.scr').forEach(s => s.classList.toggle('on', s.id === id)); };
+
+  /* ---------- particles ---------- */
+  const cv = $('c'), cx = cv.getContext('2d');
+  let W, H, DPR;
+  function size() {
+    DPR = Math.min(2, devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR; cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (mode === 'heart') buildHeart();
+  }
+  let mode = 'drift', P = [], targets = [];
+  const N = Math.min(900, Math.round(innerWidth * innerHeight / 450));
+  for (let i = 0; i < N; i++) P.push({ x: Math.random() * innerWidth, y: Math.random() * innerHeight, vx: 0, vy: -.2 - Math.random() * .5, r: .6 + Math.random() * 1.8, a: .15 + Math.random() * .5, t: Math.random() * 6 });
+  function buildHeart() {
+    targets = [];
+    const s = Math.min(W, H * .6) * .024, cxh = W / 2, cyh = H * .62;
+    while (targets.length < P.length) {
+      const x = (Math.random() * 2 - 1) * 1.3, y = (Math.random() * 2 - 1) * 1.4 + .2;
+      const v = Math.pow(x * x + y * y - 1, 3) - x * x * y * y * y;
+      if (v <= 0) targets.push({ x: cxh + x * s * 11, y: cyh - y * s * 11 });
+    }
+  }
+  let boost = 0;
+  function burst(x, y, power) {
+    P.forEach(p => { const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy) + 20; p.vx += dx / d * power * (0.5 + Math.random()); p.vy += dy / d * power * (0.5 + Math.random()); });
+  }
+  function frame() {
+    cx.clearRect(0, 0, W, H);
+    for (let i = 0; i < P.length; i++) {
+      const p = P[i]; p.t += .03;
+      if (mode === 'heart') {
+        const t = targets[i], beat = 1 + .05 * Math.max(0, Math.sin(performance.now() / 180)) * (Math.sin(performance.now() / 360) > 0 ? 1 : 0);
+        const tx = W / 2 + (t.x - W / 2) * beat, ty = H * .62 + (t.y - H * .62) * beat;
+        p.vx += (tx - p.x) * .02; p.vy += (ty - p.y) * .02; p.vx *= .86; p.vy *= .86;
+      } else {
+        p.vx += Math.sin(p.t) * .02; p.vy += (-.25 - boost * 2.2 - p.vy * .02) * .04;
+        p.vx *= .98; p.vy *= .985;
+        if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; p.vy = -.3; }
+        if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10;
+      }
+      p.x += p.vx; p.y += p.vy;
+      const hot = mode === 'heart' ? 1 : boost;
+      cx.fillStyle = `rgba(255,${Math.round(90 + 150 * (1 - hot) * (p.r / 2.4))},${Math.round(110 + 120 * (1 - hot))},${Math.min(1, p.a + hot * .5)})`;
+      cx.beginPath(); cx.arc(p.x, p.y, p.r * (mode === 'heart' ? 1.25 : 1), 0, 6.283); cx.fill();
+    }
+    requestAnimationFrame(frame);
+  }
+  addEventListener('resize', size); size(); requestAnimationFrame(frame);
+
+  /* ---------- 1 ---------- */
+  $('go1').onclick = () => { buzz(15); show('s2'); };
+
+  /* ---------- 2: hold ---------- */
+  let her = 0, t0 = 0, holding = false, done = false, raf;
+  const ring = $('ring'), hold = $('hold');
+  const val = sec => Math.round(40 * Math.pow(sec, 2.2) + 15 * sec);
+  function tick() {
+    if (!holding) return;
+    const s = (performance.now() - t0) / 1000;
+    her = val(s);
+    $('herval').textContent = fmt(her);
+    ring.setAttribute('stroke-dasharray', `${Math.min(100, s / 6 * 100)} 100`);
+    boost = Math.min(1, s / 6);
+    if (Math.random() < .25) buzz(8);
+    if (s > 1.5) $('holdhint').textContent = s > 4 ? 'Ого. Ну ладно, хватит, я понял 😌' : 'Неплохо, неплохо...';
+    raf = requestAnimationFrame(tick);
+  }
+  hold.addEventListener('pointerdown', e => {
+    if (done) return; e.preventDefault();
+    holding = true; t0 = performance.now(); hold.classList.add('down'); $('holdtxt').textContent = 'ЛЮБЛЮ…';
+    try { hold.setPointerCapture(e.pointerId); } catch (_) {}
+    tick();
+  });
+  const release = () => {
+    if (!holding) return;
+    holding = false; cancelAnimationFrame(raf); hold.classList.remove('down');
+    if (her < 30) { her = 0; $('herval').textContent = '0'; $('holdtxt').textContent = 'ДОЛЬШЕ'; $('holdhint').textContent = 'Это всё? Держи подольше.'; ring.setAttribute('stroke-dasharray', '0 100'); boost = 0; return; }
+    done = true; $('holdtxt').textContent = 'ПРИНЯТО'; buzz([30, 40, 30]);
+    setTimeout(() => { boost = 0; show('s3'); duel(); }, 900);
+  };
+  hold.addEventListener('pointerup', release);
+  hold.addEventListener('pointercancel', release);
+  hold.addEventListener('contextmenu', e => e.preventDefault());
+
+  /* ---------- 3: duel ---------- */
+  function type(el, text, cb) {
+    let i = 0; const go = () => { el.textContent = text.slice(0, ++i); if (i < text.length) setTimeout(go, reduce ? 0 : 22); else cb && cb(); }; go();
+  }
+  function duel() {
+    const n1 = $('n1'), n2 = $('n2'), b1 = $('b1'), b2 = $('b2');
+    n1.textContent = fmt(her); b1.style.transition = 'width 1s cubic-bezier(.2,.8,.2,1)';
+    requestAnimationFrame(() => b1.style.width = '50%');
+    const start = performance.now() + 1100;
+    function run(now) {
+      const t = (now - start) / 1000;
+      if (t < 0) return requestAnimationFrame(run);
+      let mine, w;
+      if (t < 1) { mine = her * t; w = 50 * t; }
+      else { const k = t - 1; mine = her * Math.pow(12, k * 1.6); w = 50 + 50 * Math.pow(k, 1.3) * 2.2; }
+      b2.style.width = w + '%';
+      if (t > 1.05) { $('duel').classList.add('shake'); boost = Math.min(1, (t - 1) / 1.5); if (Math.random() < .3) buzz(15); }
+      if (t < 3.2) { n2.textContent = mine > 1e15 ? '∞∞∞∞∞∞' : fmt(mine); requestAnimationFrame(run); }
+      else {
+        n2.textContent = '∞'; b2.style.width = '400%';
+        $('duel').classList.remove('shake'); buzz([60, 40, 120]);
+        burst(W / 2, H * .4, 18);
+        setTimeout(() => boost = 0, 800);
+        type($('err'),
+          'ОШИБКА: моя любовь не помещается в экран\n' +
+          'Твоя: ' + fmt(her) + '\nМоя: больше. Всегда больше.',
+          () => { $('go3').style.visibility = 'visible'; });
+      }
+    }
+    requestAnimationFrame(run);
+  }
+  $('go3').onclick = () => { buzz(15); show('s4'); };
+
+  /* ---------- 4: verdict ---------- */
+  const lines = ['Точно?', 'Подумай ещё', 'Ну правда?', 'Последний шанс', 'Ты сама знаешь', 'Ладно, хватит'];
+  let noCount = 0;
+  $('no').onclick = () => {
+    buzz(20);
+    const no = $('no'), yes = $('yes');
+    if (noCount >= lines.length) return;
+    no.textContent = lines[noCount++];
+    const s = Math.max(.35, 1 - noCount * .13);
+    no.style.transform = `scale(${s}) translateX(${(noCount % 2 ? 1 : -1) * noCount * 6}px)`;
+    yes.style.fontSize = (17 + noCount * 4) + 'px';
+    yes.style.padding = (22 + noCount * 6) + 'px 28px';
+    if (noCount >= lines.length) { no.style.opacity = 0; no.style.pointerEvents = 'none'; }
+  };
+  $('yes').onclick = () => {
+    buzz([20, 60, 20, 60, 80]);
+    mode = 'heart'; buildHeart();
+    $('glow').style.opacity = .5;
+    show('s5');
+    countUp();
+  };
+
+  /* ---------- 5: final ---------- */
+  let mine = 1000;
+  function countUp() { const el = $('mine'); let v = 0; const go = () => { v += 37; el.textContent = Math.min(v, mine); if (v < mine) requestAnimationFrame(go); }; go(); }
+  const phrases = ['я тебя люблю', 'сильнее', 'ещё сильнее', 'нет, ещё сильнее', 'бесконечно', 'и ещё чуть-чуть', 'всё, сдаюсь, люблю'];
+  let taps = 0;
+  $('s5').addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    burst(e.clientX, e.clientY, 14); buzz(25);
+    mine += 1000; $('mine').textContent = mine;
+    $('taps').textContent = phrases[Math.min(taps++, phrases.length - 1)] + ' ❤';
+  });
+})();
+</script>
+</body>
+</html>
